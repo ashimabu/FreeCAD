@@ -3061,9 +3061,11 @@ void TreeWidget::onUpdateStatus()
                 errors.push_back(obj);
             if (docItem->ObjectMap.count(obj))
                 continue;
-            auto vpd = Base::freecad_dynamic_cast<ViewProviderDocumentObject>(gdoc->getViewProvider(obj));
+            auto vpd = Base::freecad_dynamic_cast<ViewProviderDocumentObject>(gdoc->getViewProvider(obj));            
             if (vpd)
                 docItem->createNewItem(*vpd);
+
+            obj->setShouldOfferRelabel();                    
         }
     }
 
@@ -3073,7 +3075,7 @@ void TreeWidget::onUpdateStatus()
 
     // Update children of changed objects
     for (auto& v : localChangedObjects) {
-        auto obj = v.first;
+        auto obj = v.first;       
 
         auto iter = ObjectTable.find(obj);
         if (iter == ObjectTable.end())
@@ -3193,6 +3195,28 @@ void TreeWidget::onUpdateStatus()
         scrollToItem(errItem);
 
     updateGeometries();
+
+    // offer a relabel for new bodies
+    for (auto& v : localChangedObjects) {
+        auto obj = v.first;
+
+        auto iter = ObjectTable.find(obj);
+        if (iter == ObjectTable.end()) {
+            continue;
+        }
+
+        if (iter->second.empty()) {
+            continue;
+        }
+
+        auto dObj = iter->first;
+        if (dObj->shouldOfferRelabel()) {
+            auto& data = *iter->second.begin();
+            editItem(data->rootItem);
+            dObj->setOfferedRelabel();
+        }
+    }
+
     statusTimer->stop();
 
     FC_LOG("done update status");
