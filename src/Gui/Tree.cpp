@@ -109,6 +109,10 @@ static bool isSelectionCheckBoxesEnabled() {
     return TreeParams::getCheckBoxesSelection();
 }
 
+static bool isAutoRelabelNewEnabled() {
+    return TreeParams::getAutoRelabelNew();
+}
+
 void TreeParams::onItemBackgroundChanged()
 {
     if (getItemBackground()) {
@@ -3198,6 +3202,11 @@ void TreeWidget::onUpdateStatus()
 
     // offer a relabel for new bodies
     for (auto& v : localChangedObjects) {
+        auto offerRelablEnabled = isAutoRelabelNewEnabled();
+        if (!offerRelablEnabled) {
+            break;
+        }
+
         auto obj = v.first;
 
         auto iter = ObjectTable.find(obj);
