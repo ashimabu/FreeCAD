@@ -3041,6 +3041,7 @@ void TreeWidget::onUpdateStatus()
     UpdateDisabler disabler(*this, updateBlocked);
 
     std::vector<App::DocumentObject*> errors;
+    App::DocumentObject* relabelCandidate;
 
     // Use a local copy in case of nested calls
     auto localNewObjects = NewObjects;
@@ -3068,8 +3069,11 @@ void TreeWidget::onUpdateStatus()
             auto vpd = Base::freecad_dynamic_cast<ViewProviderDocumentObject>(gdoc->getViewProvider(obj));            
             if (vpd)
                 docItem->createNewItem(*vpd);
-
-            obj->setShouldOfferRelabel();                    
+            
+            obj->setShouldOfferRelabel();
+            if (obj->getParents().empty() && obj->getOutList().empty()) {
+                relabelCandidate = obj;
+            }
         }
     }
 
@@ -3079,7 +3083,11 @@ void TreeWidget::onUpdateStatus()
 
     // Update children of changed objects
     for (auto& v : localChangedObjects) {
-        auto obj = v.first;       
+        auto obj = v.first;
+
+        if (obj->shouldOfferRelabel()) {
+            relabelCandidate = obj;
+        }
 
         auto iter = ObjectTable.find(obj);
         if (iter == ObjectTable.end())
@@ -3200,35 +3208,27 @@ void TreeWidget::onUpdateStatus()
 
     updateGeometries();
 
-    // offer a relabel for new bodies
-    for (auto& v : localChangedObjects) {
-        auto offerRelablEnabled = isAutoRelabelNewEnabled();
-        if (!offerRelablEnabled) {
-            break;
-        }
-
-        auto obj = v.first;
-
-        auto iter = ObjectTable.find(obj);
-        if (iter == ObjectTable.end()) {
-            continue;
-        }
-
-        if (iter->second.empty()) {
-            continue;
-        }
-
-        auto dObj = iter->first;
-        if (dObj->shouldOfferRelabel()) {
-            auto& data = *iter->second.begin();
-            editItem(data->rootItem);
-            dObj->setOfferedRelabel();
-        }
-    }
+    tryOfferRelabel(relabelCandidate);
 
     statusTimer->stop();
 
     FC_LOG("done update status");
+}
+
+void TreeWidget::tryOfferRelabel(App::DocumentObject*& object)
+{
+    if (!isAutoRelabelNewEnabled() || !object) {
+        return;
+    }
+
+    auto iter = ObjectTable.find(object);
+    if (iter != ObjectTable.end() && !iter->second.empty()) {
+        auto& data = *iter->second.begin();
+        if (data && data->rootItem) {
+            editItem(data->rootItem);
+            object->setOfferedRelabel();
+        }
+    }
 }
 
 void TreeWidget::onItemEntered(QTreeWidgetItem* item)
